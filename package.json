@@ -1,6 +1,6 @@
 {
   "name": "my-node-template",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "a template for all my node projects",
   "main": "index.js",
   "scripts": {
