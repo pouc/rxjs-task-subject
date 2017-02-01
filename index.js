@@ -86,8 +86,8 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
         this.detail = detail;
     }
 
-    changeStatus(status, val, detail, err = false) {
-        if (!err) this.next({status: status, val: val, detail: detail});
+    changeStatus(status, val, detail, err) {
+        if (!undef.if(err, false)) this.next({status: status, val: val, detail: detail});
         else this.error({val: val, detail: detail});
     }
 
@@ -110,14 +110,16 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
         this.changeStatus(undefined, val, parseDetail(detail, arguments), true);
     }
 
-    bind(f, first = false) {
+    bind(f, first) {
+        var myFirst = undef.if(first, false);
+
         if (this.bound.map((b) => b.f).indexOf(f) >= 0) {
             this.bound.filter((b) => b.f == f).forEach((b) => {
                 b.active = true;
-                b.first = first;
+                b.first = myFirst;
             });
         } else {
-            var boundData = {f: f, active: true, first: first};
+            var boundData = {f: f, active: true, first: myFirst};
             this.bound.push(boundData);
 
             this
