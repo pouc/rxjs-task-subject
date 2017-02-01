@@ -1,6 +1,6 @@
 {
   "name": "rxjs-task-subject",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "A extension of ReplaySubject to add useful features like time tracking, details, ...",
   "main": "index.js",
   "scripts": {
