@@ -86,6 +86,13 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
         this.detail = detail;
     }
 
+    listen(obs) {
+        obs.subscribe(
+            (v) => this.next(v),
+            (v) => this.error(v)
+        );
+    }
+
     changeStatus(status, val, detail, err) {
         if (!undef.if(err, false)) this.next({status: status, val: val, detail: detail});
         else this.error({val: val, detail: detail});
