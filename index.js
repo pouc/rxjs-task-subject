@@ -67,6 +67,15 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
         super.error(this.get());
     }
 
+    toPromise(PromiseCtor) {
+        return super
+            .toPromise(PromiseCtor)
+            .then(
+                (ret) => ret.val,
+                (err) => { throw err.detail; }
+            );
+    }
+
     get() {
         return {
             status: this.status,
