@@ -95,7 +95,7 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
             .toPromise(PromiseCtor)
             .then(
                 (ret) => ret.val,
-                (err) => { throw err.detail; }
+                (err) => { throw err.val; }
             );
     }
 
