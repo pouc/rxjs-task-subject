@@ -6,6 +6,31 @@ var vsprintf = require('sprintf-js').vsprintf;
 var slice = require('sliced');
 var q = require('q');
 
+class TaskSubjectInfo {
+    constructor(statusOrTaskSubjectInfo, val, detail) {
+        this.startedDate = new Date();
+        this.set(statusOrTaskSubjectInfo, val, detail);
+    }
+
+    static create(statusOrTaskSubjectInfo, val, detail) {
+        return new TaskSubjectInfo(statusOrTaskSubjectInfo, val, detail);
+    }
+
+    set(statusOrTaskSubjectInfo, val, detail) {
+        this.modifiedDate = new Date();
+        if (statusOrTaskSubjectInfo instanceof TaskSubjectInfo) {
+            this.status = statusOrTaskSubjectInfo.status;
+            this.val = statusOrTaskSubjectInfo.val;
+            this.detail = statusOrTaskSubjectInfo.detail;
+            this.startedDate = statusOrTaskSubjectInfo.startedDate;
+        } else {
+            this.status = statusOrTaskSubjectInfo;
+            this.val = val;
+            this.detail = detail;
+        }
+    }
+}
+
 /**
  *
  * [![GitHub version](https://badge.fury.io/gh/pouc%2Frxjs-task-subject.svg)](https://badge.fury.io/gh/pouc%2Frxjs-task-subject)
@@ -35,9 +60,7 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
         super();
 
         this.bound = [];
-        this.startedDate = new Date();
-
-        this.set('waiting');
+        this.info = TaskSubjectInfo.create('waiting');
     }
 
     lift(operator) {
@@ -48,21 +71,21 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
     }
 
     next(options) {
-        this.set(
-            undef.child(options, 'status', this.status),
-            undef.child(options, 'val', undefined),
-            undef.child(options, 'detail', undefined)
-        );
+        if (options instanceof TaskSubjectInfo) {
+            this.set(options);
+        } else {
+            this.set('running', options);
+        }
 
         super.next(this.get());
     }
 
     error(options) {
-        this.set(
-            'failed',
-            undef.child(options, 'val', undefined),
-            undef.child(options, 'detail', undefined)
-        );
+        if (options instanceof TaskSubjectInfo) {
+            this.set(options);
+        } else {
+            this.set('failed', options);
+        }
 
         super.error(this.get());
     }
@@ -77,34 +100,16 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
     }
 
     get() {
-        return {
-            status: this.status,
-            startedDate: this.startedDate,
-            modifiedDate: this.modifiedDate,
-            endedDate: this.endedDate,
-            failedDate: this.failedDate,
-            val: this.val,
-            detail: this.detail
-        };
+        return TaskSubjectInfo.create(this.info);
     }
 
-    set(status, val, detail) {
-        this.modifiedDate = new Date();
-        this.status = status;
-        this.val = val;
-        this.detail = detail;
-    }
-
-    listen(obs) {
-        obs.subscribe(
-            (v) => this.next(v),
-            (v) => this.error(v)
-        );
+    set(statusOrTaskSubjectInfo, val, detail) {
+        this.info.set(statusOrTaskSubjectInfo, val, detail);
     }
 
     changeStatus(status, val, detail, err) {
-        if (!undef.if(err, false)) this.next({status: status, val: val, detail: detail});
-        else this.error({val: val, detail: detail});
+        if (!undef.if(err, false)) this.next(TaskSubjectInfo.create(status, val, detail));
+        else this.error(TaskSubjectInfo.create(status, val, detail));
     }
 
     start() {
@@ -116,14 +121,12 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
     }
 
     done(val) {
-        this.endedDate = new Date();
         this.changeStatus('done', val);
         this.complete();
     }
 
     failed(val, detail) {
-        this.failedDate = new Date();
-        this.changeStatus(undefined, val, parseDetail(detail, arguments), true);
+        this.changeStatus('failed', val, parseDetail(detail, arguments), true);
     }
 
     bind(f, first) {
@@ -163,6 +166,8 @@ module.exports = class TaskSubject extends Rx.ReplaySubject {
     }
 
 };
+
+module.exports.TaskSubjectInfo = TaskSubjectInfo;
 
 function parseDetail(detail, args) {
 

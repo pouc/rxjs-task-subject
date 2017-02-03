@@ -1,6 +1,7 @@
 var promise = require('q');
 var chai = require('chai');
 var sinon = require('sinon');
+var Rx = require('rxjs/Rx');
 
 chai.use(require('chai-as-promised'));
 chai.use(require('sinon-chai'));
@@ -38,11 +39,11 @@ describe('TaskSubject...', function() {
         var task = new exports();
         
         expect(task).to.not.be.undefined;
-        expect(task.status).to.equal('waiting');
+        expect(task.info.status).to.equal('waiting');
 
         task.start();
 
-        expect(task.status).to.equal('running');
+        expect(task.info.status).to.equal('running');
     });
 
     it('should alert once', function(done) {
@@ -108,8 +109,8 @@ describe('TaskSubject...', function() {
         var task = new exports();
         task.running('aze', 'rty');
 
-        expect(task.val).to.equal('aze');
-        expect(task.detail).to.equal('rty');
+        expect(task.info.val).to.equal('aze');
+        expect(task.info.detail).to.equal('rty');
 
     });
 
@@ -118,8 +119,8 @@ describe('TaskSubject...', function() {
         var task = new exports();
         task.running('aze', 'rty %s', 'toto');
 
-        expect(task.val).to.equal('aze');
-        expect(task.detail).to.equal('rty toto');
+        expect(task.info.val).to.equal('aze');
+        expect(task.info.detail).to.equal('rty toto');
 
     });
 
@@ -130,9 +131,9 @@ describe('TaskSubject...', function() {
 
         task.done('yeah');
 
-        expect(task.status).to.equal('done');
-        expect(task.val).to.equal('yeah');
-        expect(task.detail).to.be.undefined;
+        expect(task.info.status).to.equal('done');
+        expect(task.info.val).to.equal('yeah');
+        expect(task.info.detail).to.be.undefined;
 
         task.once(cb);
 
@@ -150,10 +151,100 @@ describe('TaskSubject...', function() {
         var task = new exports();
         task.failed('yeah');
 
-        expect(task.status).to.equal('failed');
-        expect(task.val).to.equal('yeah');
-        expect(task.detail).to.be.undefined;
+        expect(task.info.status).to.equal('failed');
+        expect(task.info.val).to.equal('yeah');
+        expect(task.info.detail).to.be.undefined;
 
+    });
+    
+    it('should subscribe', function() {
+
+        var task1 = new exports();
+        
+        [1, 2, 3, 4, 5].forEach(val => {
+            task1.running(val);
+        });
+        
+        task1.done('toto');
+        
+        var task2 = new exports();
+        var cb = sinon.spy();
+        
+        task1.subscribe(task2);
+        task2.bind(cb);
+        
+        expect(cb).to.have.callCount(6);
+        
+        expect(task1.info.status).to.equal('done');
+        expect(task2.info.status).to.equal('done');
+        
+        expect(task1.info.val).to.equal('toto');
+        expect(task2.info.val).to.equal('toto');
+
+    });
+    
+    it('should subscribe (advanced)', function() {
+
+        var task1 = new exports();
+        
+        [1, 2, 3, 4, 5].forEach(val => {
+            task1.running(val);
+        });
+        
+
+        var task2 = new exports();
+        var cb = sinon.spy();
+        
+        task1.subscribe(task2);
+        task2.bind(cb);
+        
+        task2.running(123);
+        
+        expect(task1.info.status).to.equal('running');
+        expect(task2.info.status).to.equal('running');
+        
+        expect(task1.info.val).to.equal(5);
+        expect(task2.info.val).to.equal(123);
+        
+        task1.running(456);
+        
+        expect(task1.info.val).to.equal(456);
+        expect(task2.info.val).to.equal(456);
+        
+        task1.done('toto');
+        
+        expect(cb).to.have.callCount(8);
+        
+        expect(task1.info.status).to.equal('done');
+        expect(task2.info.status).to.equal('done');
+        
+        expect(task1.info.val).to.equal('toto');
+        expect(task2.info.val).to.equal('toto');
+
+    });
+    
+    it('should subscribe through promises', function() {
+       
+        var task1 = new exports();
+
+        Rx.Observable
+            .from(promise.delay(100).then(() => promise.resolve('GOOD')))
+            .subscribe(task1);
+        
+        var task2 = new exports();
+       
+        Rx.Observable
+            .from(promise.delay(100).then(() => promise.reject('FAIL')))
+            .catch((err) => {
+                return Rx.Observable.from(task1.toPromise());
+            })
+            .subscribe(task2);
+            
+        return promise.all([
+            expect(task1.toPromise()).to.eventually.equal('GOOD'),
+            expect(task2.toPromise()).to.eventually.equal('GOOD')
+        ]);
+       
     });
 
 });
